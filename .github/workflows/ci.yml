@@ -1,0 +1,90 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  secrets-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # scan the whole history, not just the last commit
+      - name: gitleaks
+        run: |
+          curl -sSfL https://github.com/gitleaks/gitleaks/releases/download/v8.28.0/gitleaks_8.28.0_linux_x64.tar.gz | tar -xz gitleaks
+          ./gitleaks git --config .gitleaks.toml --redact --verbose .
+
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      collector: ${{ steps.filter.outputs.collector }}
+      firmware: ${{ steps.filter.outputs.firmware }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            collector:
+              - 'collector/**'
+              - 'schema/**'
+            firmware:
+              - 'firmware/**'
+
+  collector:
+    needs: changes
+    if: needs.changes.outputs.collector == 'true' || github.event_name == 'push'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: collector
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - run: uv sync --locked
+      - run: uv run ruff check
+      - run: uv run pytest -q
+
+  firmware:
+    needs: changes
+    if: needs.changes.outputs.firmware == 'true' || github.event_name == 'push'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: firmware/trmnl
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.platformio
+            firmware/trmnl/managed_components
+          key: pio-${{ runner.os }}-${{ hashFiles('firmware/trmnl/platformio.ini', 'firmware/trmnl/dependencies.lock.esp32s3') }}
+      - run: pip install platformio
+      - name: Unit tests (native)
+        run: pio test -e native
+      - name: Build NOTE4C firmware
+        run: pio run -e zectrix_note4c
+      - uses: actions/upload-artifact@v4
+        with:
+          name: zectrix_note4c-firmware-${{ github.sha }}
+          # firmware.bin = app only, flash at 0x20000 (keeps Wi-Fi + pairing); see docs/flashing.md
+          path: |
+            firmware/trmnl/.pio/build/zectrix_note4c/firmware.bin
+            firmware/trmnl/.pio/build/zectrix_note4c/merged_firmware.bin
+          if-no-files-found: error

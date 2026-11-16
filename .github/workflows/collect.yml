@@ -1,0 +1,49 @@
+name: Collect weather + GitHub
+
+# Pushes the sources that don't need your PC to the server, every 15 minutes.
+# Claude usage and the pet photo come from your PC (host/systemd).
+#
+# Off until you set the repository variable COLLECT_ENABLED=true, which only makes sense once the
+# server is reachable from the internet (VPS, see docs/deploy-vps.md).
+#
+# Settings -> Secrets and variables -> Actions:
+#   secrets:   LARAPAPER_WEBHOOK_URL, LARAPAPER_WEBHOOK_TOKEN
+#   variables: COLLECT_ENABLED, LAT, LON, TZ, WEATHER_UNIT, GH_LOGIN, GH_WEEKS, HEATMAP_STYLE
+
+on:
+  schedule:
+    - cron: "*/15 * * * *" # GitHub may delay scheduled runs; fine for weather
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: collect
+  cancel-in-progress: false
+
+jobs:
+  collect:
+    if: vars.COLLECT_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    defaults:
+      run:
+        working-directory: collector
+    env:
+      LARAPAPER_WEBHOOK_URL: ${{ secrets.LARAPAPER_WEBHOOK_URL }}
+      LARAPAPER_WEBHOOK_TOKEN: ${{ secrets.LARAPAPER_WEBHOOK_TOKEN }}
+      LAT: ${{ vars.LAT }}
+      LON: ${{ vars.LON }}
+      TZ: ${{ vars.TZ }}
+      WEATHER_UNIT: ${{ vars.WEATHER_UNIT }}
+      GH_LOGIN: ${{ vars.GH_LOGIN || github.repository_owner }}
+      GH_WEEKS: ${{ vars.GH_WEEKS }}
+      HEATMAP_STYLE: ${{ vars.HEATMAP_STYLE }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - run: uv sync --locked --no-dev
+      - run: uv run --no-dev zectrix-collect --only weather,github

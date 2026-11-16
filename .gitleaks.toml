@@ -1,0 +1,29 @@
+# gitleaks config: the default rules plus project-specific ones.
+# Run locally: gitleaks git --config .gitleaks.toml --redact .   (or: just leaks)
+[extend]
+useDefault = true
+
+[[rules]]
+id = "larapaper-webhook-url"
+description = "LaraPaper plugin webhook URL with a real plugin uuid (anyone with it can write to the screen)"
+regex = '''custom_plugins/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}'''
+
+[[rules]]
+id = "plugin-uuid-assignment"
+description = "Plugin uuid assigned in a config file"
+regex = '''(?i)PLUGIN_UUID\s*=\s*[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}'''
+
+[[rules]]
+id = "laravel-app-key"
+description = "Laravel APP_KEY"
+regex = '''APP_KEY\s*=\s*base64:[A-Za-z0-9+/]{40,}={0,2}'''
+
+[[rules]]
+id = "webhook-token"
+description = "Webhook bearer token assigned in a config file"
+regex = '''(?i)WEBHOOK_TOKEN\s*=\s*[A-Za-z0-9_\-]{16,}'''
+
+[[allowlists]]
+description = "Fake example key in upstream firmware docs (firmware/trmnl/README.md; plain README.md inside subtree squash commits)"
+regexTarget = "match"
+regexes = ['''2r--SahjsAKCFksVcped2Q''']
