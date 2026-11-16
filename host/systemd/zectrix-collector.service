@@ -1,0 +1,16 @@
+[Unit]
+Description=Push e-ink dashboard data (weather, GitHub, Claude usage, pet photo) to the server
+After=network-online.target
+
+[Service]
+Type=oneshot
+# Adjust if the repo lives elsewhere (see host/systemd/README.md).
+WorkingDirectory=%h/Documents/projects/zectrix-dashboard/collector
+# Which sources this PC sends. While LaraPaper runs on the LAN: all of them.
+# Once GitHub Actions sends weather+github to a VPS, override with a drop-in:
+#   systemctl --user edit zectrix-collector.service   ->  [Service] Environment=SOURCES=claude,pet
+Environment=SOURCES=weather,github,claude,pet
+ExecStart=%h/.local/bin/uv run -q zectrix-collect --only ${SOURCES}
+# A hung network call must not block the next run.
+TimeoutStartSec=120
+Nice=10

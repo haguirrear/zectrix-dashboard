@@ -1,0 +1,12 @@
+[Unit]
+Description=Run the e-ink dashboard collector every 5 minutes
+
+[Timer]
+OnCalendar=*:0/5
+# Small random delay so it doesn't fire on the exact same second as other jobs.
+RandomizedDelaySec=20
+AccuracySec=10s
+Unit=zectrix-collector.service
+
+[Install]
+WantedBy=timers.target
