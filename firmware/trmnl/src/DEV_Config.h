@@ -79,6 +79,7 @@
 #define VBAT_HOLD_PIN        17
 #define ZECTRIX_CHARGING_PIN 2
 #define ZECTRIX_CHARGED_PIN  1
+#define ZECTRIX_LED_PIN      3 // status LED, active-low (LOW = on)
 #elif defined(BOARD_TRMNL_GEN2)
 #define EPD_SCK_PIN      6
 #define EPD_MOSI_PIN     1
