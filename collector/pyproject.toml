@@ -1,0 +1,30 @@
+[project]
+name = "zectrix-collector"
+version = "0.1.0"
+description = "Collects dashboard data (weather, GitHub, Claude Code usage, pet photo) and pushes it to the e-ink server"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.10"
+dependencies = ["pillow>=10", "numpy>=1.24"]
+
+[project.scripts]
+zectrix-collect = "zectrix_collector.cli:main"
+eink-convert = "zectrix_collector.render.eink:main"
+
+[dependency-groups]
+dev = ["pytest>=8", "ruff>=0.6", "jsonschema>=4"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP"]
+ignore = ["E741"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

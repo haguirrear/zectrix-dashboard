@@ -1,0 +1,86 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Dashboard data",
+  "description": "Variables the dashboard template reads (LaraPaper: merge_variables, e.g. {{ weather.temp }}). Produced by collector/; each top-level section is optional because senders deep-merge their own sections independently. When adding a field: update the source, this schema and the template together.",
+  "type": "object",
+  "properties": {
+    "date": { "type": "string", "description": "Local date shown in the header, e.g. \"Mon Nov 16\"" },
+    "updated": { "type": "string", "description": "Local time (HH:MM) of the last push, shown in the status bar" },
+    "weather": {
+      "type": "object",
+      "required": ["temp", "feels", "max", "min", "rain", "icon", "night", "label", "unit"],
+      "additionalProperties": false,
+      "properties": {
+        "temp": { "type": "integer" },
+        "feels": { "type": "integer" },
+        "max": { "type": "integer" },
+        "min": { "type": "integer" },
+        "rain": { "type": "number", "minimum": 0, "maximum": 100, "description": "Max precipitation probability today, %" },
+        "icon": { "enum": ["sun", "partly", "cloud", "fog", "rain", "snow", "storm"] },
+        "night": { "type": "boolean" },
+        "label": { "type": "string" },
+        "unit": { "enum": ["°C", "°F"] }
+      }
+    },
+    "github": {
+      "type": "object",
+      "required": ["login", "source", "total", "period_total", "streak", "nweeks", "levels", "heatmap"],
+      "additionalProperties": false,
+      "properties": {
+        "login": { "type": "string" },
+        "source": { "enum": ["public", "api"] },
+        "total": { "type": "integer", "description": "Contributions in the last year" },
+        "period_total": { "type": "integer", "description": "Contributions in the weeks shown" },
+        "streak": { "type": "integer", "description": "Consecutive active days ending today" },
+        "nweeks": { "type": "integer" },
+        "levels": {
+          "type": "array",
+          "description": "One column per week (Mon..Sun), level 0-4, -1 = not drawn",
+          "items": { "type": "array", "minItems": 7, "maxItems": 7, "items": { "type": "integer", "minimum": -1, "maximum": 4 } }
+        },
+        "heatmap": { "$ref": "#/$defs/image" }
+      }
+    },
+    "claude": {
+      "type": "object",
+      "required": ["available", "five_hour", "seven_day", "asof", "stale"],
+      "additionalProperties": false,
+      "properties": {
+        "available": { "const": true },
+        "five_hour": { "$ref": "#/$defs/usageWindow" },
+        "seven_day": { "$ref": "#/$defs/usageWindow" },
+        "asof": { "type": "string", "description": "Local time of the usage snapshot (HH:MM)" },
+        "stale": { "type": "boolean", "description": "Snapshot older than 5 hours" }
+      }
+    },
+    "pet": {
+      "allOf": [{ "$ref": "#/$defs/image" }],
+      "required": ["available"],
+      "properties": { "available": { "const": true } }
+    }
+  },
+  "$defs": {
+    "image": {
+      "type": "object",
+      "required": ["src", "width", "height"],
+      "properties": {
+        "src": { "type": "string", "pattern": "^data:image/png;base64,", "description": "PNG using only the exact panel colors" },
+        "width": { "type": "integer" },
+        "height": { "type": "integer" }
+      }
+    },
+    "usageWindow": {
+      "type": "object",
+      "required": ["known", "pct", "reset", "resets", "alert"],
+      "additionalProperties": false,
+      "description": "Every key is always present: the server deep-merges, so a missing key would keep a stale value.",
+      "properties": {
+        "known": { "type": "boolean" },
+        "pct": { "type": "integer", "minimum": 0 },
+        "reset": { "type": "boolean", "description": "The window rolled over after the snapshot was taken" },
+        "resets": { "type": "string", "description": "Local reset time, \"now\", or empty" },
+        "alert": { "type": "boolean", "description": "pct >= 90" }
+      }
+    }
+  }
+}
