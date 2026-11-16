@@ -19,12 +19,14 @@ const char *wifiStatusStr(wl_status_t wifi_status) {
       {"connect_failed", WL_CONNECT_FAILED},
       {"connection_lost", WL_CONNECTION_LOST},
       {"disconnected", WL_DISCONNECTED},
+      {"stopped", WL_STOPPED}, // Arduino core 3.x: reported after WiFi.disconnect(true)
   };
 
   for (const WifiStatusNode &entry : wifiStatusMap) {
     if (wifi_status == entry.value) return entry.name;
   }
-  return nullptr;
+  // Never return nullptr: callers pass this straight to strncpy/printf("%s").
+  return "unknown";
 }
 
 void applyWifiHostname(const String &hostname) {
