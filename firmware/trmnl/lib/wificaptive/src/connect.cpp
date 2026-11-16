@@ -370,10 +370,24 @@ WifiConnectionResult initiateConnectionAndWaitForOutcome(const WifiCredentials c
 
 wl_status_t waitForConnectResult(uint32_t timeout) {
 
-  unsigned long timeoutmillis = millis() + timeout;
+  unsigned long start = millis();
+  bool dhcpGraceUsed = false;
   wl_status_t status = WiFi.status();
 
-  while (millis() < timeoutmillis) {
+  while (true) {
+    if (millis() - start >= timeout) {
+      // WiFi.status() only reports WL_CONNECTED once DHCP has assigned an IP. If the station is
+      // already associated when the budget runs out, DHCP is just slow (WPA3-SAE eats most of the
+      // budget): give it a grace period instead of tearing down a working link. Disconnecting and
+      // reconnecting right away trips WPA3/PMF routers ("association refused temporarily").
+      if (!dhcpGraceUsed && WiFi.STA.connected()) {
+        dhcpGraceUsed = true;
+        timeout += WIFI_DHCP_GRACE_TIMEOUT;
+        Log_info("WiFi: associated but no IP yet, waiting up to %d ms more for DHCP", WIFI_DHCP_GRACE_TIMEOUT);
+        continue;
+      }
+      break;
+    }
     wl_status_t newStatus = WiFi.status();
     if (newStatus != status) {
       Log_info("WiFi: status changed from %s to %s", wifiStatusStr(status), wifiStatusStr(newStatus));

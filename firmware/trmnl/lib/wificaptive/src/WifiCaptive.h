@@ -31,6 +31,8 @@
 #define CONNECTION_TIMEOUT          15000
 // Shorter timeout for fast-connect attempt (specific BSSID+channel); falls back to full scan on expiry
 #define WIFI_FAST_CONNECT_TIMEOUT   5000
+// Extra time granted once when the station is associated but DHCP has not delivered an IP yet
+#define WIFI_DHCP_GRACE_TIMEOUT     15000
 
 #define WIFI_SSID_KEY(i)            ("wifi_" + String(i) + "_ssid").c_str()
 #define WIFI_PSWD_KEY(i)            ("wifi_" + String(i) + "_pswd").c_str()
