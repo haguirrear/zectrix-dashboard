@@ -145,6 +145,9 @@ bool WifiCaptive::startPortal() {
 
   bool succesfullyConnected = false;
   bool connected_via_modem = false;
+    // Credentials of a failed portal attempt, kept for the retry after the AP is shut down
+    // (the AP+STA attempt can fail where a plain STA attempt succeeds).
+  WifiCredentials retryCredentials;
   long lTime = millis();
     // wait until SSID is provided
   while ((millis() - lTime) < PORTAL_TIMEOUT) // keep CaptivePortal active for a maximum of 15 minutes
@@ -195,6 +198,7 @@ bool WifiCaptive::startPortal() {
         succesfullyConnected = true;
         break;
       } else {
+        retryCredentials = credentials;
         _ssid = "";
         _password = "";
         _band = "";
@@ -217,17 +221,19 @@ bool WifiCaptive::startPortal() {
     if (status != WL_CONNECTED) {
       Log_info("Not connected after AP disconnect");
       WiFi.mode(WIFI_STA);
-            // Always start with _enterprise_credentials to preserve static IP settings
-      WifiCredentials credentials = _enterprise_credentials;
-      if (!credentials.isEnterprise) {
-                // For non-enterprise, ensure basic fields are set
-        credentials.ssid = _ssid;
-        credentials.pswd = _password;
+            // The portal loop clears _ssid/_password on failure, so retry with the saved copy.
+      WifiCredentials credentials = retryCredentials;
+      if (credentials.ssid != "") {
+        Log_info("Reconnecting with static IP: %s, IP: %s", credentials.useStaticIP ? "yes" : "no",
+                 credentials.staticIP.c_str());
+        auto result = initiateConnectionAndWaitForOutcome(credentials);
+        status = result.status;
+        if (status == WL_CONNECTED) {
+          saveWifiCredentials(credentials);
+          saveApiServer(_api_server);
+          succesfullyConnected = true;
+        }
       }
-      Log_info("Reconnecting with static IP: %s, IP: %s", credentials.useStaticIP ? "yes" : "no",
-               credentials.staticIP.c_str());
-      auto result = initiateConnectionAndWaitForOutcome(credentials);
-      status = result.status;
     }
   }
 
