@@ -1,0 +1,29 @@
+# LaraPaper (TRMNL BYOS server) for the ZECTRIX NOTE4C: LOCAL / LAN setup.
+# Upstream: https://github.com/usetrmnl/larapaper (docker/prod/docker-compose.yml)
+# For the VPS use compose.prod.yml (Caddy in front, admin only over Tailscale).
+#
+# SECURITY: plain HTTP, meant for the home LAN only. Do NOT port-forward it on the router.
+name: larapaper   # keeps the volume names (larapaper_database, larapaper_storage) stable
+services:
+  app:
+    # Pinned release; bump deliberately (also in compose.prod.yml).
+    image: ghcr.io/usetrmnl/larapaper:0.47.0
+    ports:
+      # All interfaces so the NOTE4C can reach it over Wi-Fi.
+      - "0.0.0.0:4567:8080"
+    env_file:
+      - .env            # APP_KEY and APP_URL (see .env.example / README.md)
+    environment:
+      - PHP_OPCACHE_ENABLE=1
+      - TRMNL_PROXY_REFRESH_MINUTES=15
+      - DB_DATABASE=database/storage/database.sqlite
+      - APP_TIMEZONE=UTC                       # upstream recommends UTC
+      - MULTIUSER_REGISTRATION_ENABLED=false   # signup closes after the first account
+    volumes:
+      - database:/var/www/html/database/storage
+      - storage:/var/www/html/storage/app/public/images/generated
+    restart: unless-stopped
+
+volumes:
+  database:
+  storage:

@@ -1,0 +1,208 @@
+<!--
+  NOTE4C dashboard (400x300, black/white/red/yellow).
+  LaraPaper plugin: data strategy = webhook, markup language = Liquid, full-screen markup.
+  Data comes from tools/dashboard_collector.py ({"merge_variables": {...}}); keys are top-level here.
+  Only exact panel colors are used (#000 #fff #f00 #ff0) so nothing gets remapped.
+
+  Legibility on a 1-bit-per-color panel:
+  - Text uses the TRMNL framework's pixel fonts (loaded by LaraPaper's framework CSS from trmnl.com):
+    TRMNL12 Bold for small text, TRMNL16 Bold for the date/section titles, TRMNL16 at 2x (32px) for
+    the temperature. Pixel fonts must stay at their native size (or an integer multiple) and use
+    integer line-heights, otherwise glyphs get resampled. Noto Sans is only the fallback.
+  - The GitHub logo is 16x16 pixel art (the official mark downsampled), not a scaled vector.
+  - #crisp snaps anti-aliased grey edge pixels to pure black/white per channel (threshold 2/3,
+    i.e. biased to black) before the palette mapping, so glyphs come out solid instead of broken.
+    Pure #ff0 / #f00 / images are unaffected.
+  - Arrows and the reset clock are SVG shapes instead of Unicode glyphs from a thin fallback font.
+-->
+<svg width="0" height="0" style="position: absolute">
+  <filter id="crisp" color-interpolation-filters="sRGB">
+    <feComponentTransfer>
+      <feFuncR type="discrete" tableValues="0 0 1"/>
+      <feFuncG type="discrete" tableValues="0 0 1"/>
+      <feFuncB type="discrete" tableValues="0 0 1"/>
+    </feComponentTransfer>
+  </filter>
+  <!-- 50% checkerboard; only pixel-exact when drawn at 1 user unit = 1 px (icon is 40px / viewBox 40) -->
+  <pattern id="nd-d50" width="2" height="2" patternUnits="userSpaceOnUse">
+    <rect width="1" height="1"/><rect x="1" y="1" width="1" height="1"/>
+  </pattern>
+  <clipPath id="nd-cloud-clip"><path d="M10 32 h20 a7 7 0 0 0 0 -14 a9 9 0 0 0 -17 3 a6 6 0 0 0 -3 11 z"/></clipPath>
+</svg>
+<style>
+  .nd-dash { position: fixed; inset: 0; width: 400px; height: 300px; overflow: hidden;
+          background: #fff; color: #000; font-family: "TRMNL12", "Noto Sans", sans-serif; font-size: 12px; font-weight: bold; }
+  .nd-left { position: absolute; left: 0; top: 0; width: 260px; height: 300px; filter: url(#crisp); }
+  .nd-photo { position: absolute; right: 0; top: 0; width: 140px; height: 300px; image-rendering: pixelated; }
+  .nd-photo-empty { position: absolute; right: 0; top: 0; width: 139px; height: 300px; border-left: 2px solid #000; }
+  .nd-rule { position: absolute; left: 8px; width: 244px; height: 2px; background: #000; }
+  .nd-ico { display: inline-block; vertical-align: -1px; }
+
+  /* header + weather */
+  .nd-head { position: absolute; left: 8px; top: 4px; width: 244px; }
+  .nd-date { font-family: "TRMNL16", "Noto Sans", sans-serif; font-size: 16px; line-height: 20px; }
+  .nd-wx { display: flex; align-items: center; }
+  .nd-wx .nd-sky { width: 40px; height: 40px; margin-right: 4px; flex: none; }
+  .nd-temp { font-family: "TRMNL16", "Noto Sans", sans-serif; font-size: 32px; line-height: 32px; }
+  /* three 13px lines = 39px, fits beside the 40px icon: description / rain chance / high + low */
+  .nd-wxinfo { margin-left: 8px; font-size: 12px; line-height: 13px; white-space: nowrap; }
+  .nd-warn { background: #f00; color: #fff; padding: 0 3px; }
+  .nd-hi { color: #f00; }
+  .nd-lo { margin-left: 8px; }
+  .nd-warn.nd-rain { padding: 0 3px 0 2px; }
+  .nd-drop { display: inline-block; vertical-align: 0; margin-right: 3px; }
+
+  /* github */
+  .nd-gh { position: absolute; left: 8px; top: 72px; width: 244px; }
+  .nd-sec-title { font-family: "TRMNL16", "Noto Sans", sans-serif; font-size: 16px; line-height: 16px; margin-bottom: 2px; white-space: nowrap; }
+  .nd-ghbar { display: flex; align-items: center; gap: 4px; height: 18px; padding: 0 4px; margin-bottom: 4px;
+           background: #000; color: #fff; border-radius: 3px; font-size: 12px; line-height: 12px; white-space: nowrap; }
+  .nd-ghbar .nd-r { margin-left: auto; }
+  /* heatmap is a pre-rendered exact-palette PNG (rounded boxes, black ordered dither per GitHub level) */
+  .nd-heat { display: block; margin: 0 auto; image-rendering: pixelated; }
+
+  /* claude: title + 2 rows + footer must fit in 300 - 196 = 104px */
+  .nd-cl { position: absolute; left: 8px; top: 196px; width: 244px; font-size: 12px; white-space: nowrap; }
+  .nd-row { display: flex; align-items: center; height: 18px; margin-top: 9px; } /* spread to fill down to the status bar */
+  .nd-lbl { width: 40px; flex: none; }
+  .nd-bar { position: relative; width: 80px; height: 12px; flex: none; border: 2px solid #000; box-sizing: border-box; }
+  .nd-fill { position: absolute; left: 0; top: 0; bottom: 0; background: #ff0; }
+  .nd-fill.nd-alert { background: #f00; } /* >= 90% used */
+  .nd-pct { width: 34px; flex: none; text-align: right; }
+  .nd-rs { margin-left: 6px; display: flex; align-items: center; gap: 3px; overflow: hidden; }
+  /* NicoPups (framework pixel font, 16px native, regular only) for the Claude title */
+  .nd-cl .nd-sec-title { display: flex; align-items: baseline; font-family: "NicoPups", "TRMNL16", "Noto Sans", sans-serif;
+                      font-weight: normal; font-size: 16px; line-height: 16px; margin-bottom: 4px; }
+  /* NicoPups has no bold: double the glyphs 1px to the right for a pixel-exact 2px stroke */
+  .nd-cl-name { text-shadow: 1px 0 0 currentColor; letter-spacing: 1px; }
+  .nd-asof { margin-left: auto; align-self: center; font-family: "TRMNL12", "Noto Sans", sans-serif; font-size: 12px;
+          line-height: 12px; font-weight: bold; padding: 2px 6px; background: #f00; color: #fff; border-radius: 8px; }
+
+  /* status bar: last data push on the left, device telemetry (from its last poll) on the right */
+  .nd-status { position: absolute; left: 8px; top: 280px; width: 244px; height: 18px; box-sizing: border-box; padding: 0 4px;
+            background: #000; color: #fff; border-radius: 3px; line-height: 12px;
+            display: flex; align-items: center; gap: 4px; white-space: nowrap; }
+  .nd-status .nd-r { margin-left: auto; display: flex; align-items: center; gap: 4px; }
+</style>
+
+<div class="nd-dash">
+  <div class="nd-left">
+    <div class="nd-head">
+      <div class="nd-date">{{ date }}</div>
+      {% if weather.temp %}
+      <div class="nd-wx">
+        <svg class="nd-sky" width="40" height="40" viewBox="0 0 40 40">
+          {% if weather.icon == "sun" and weather.night %}
+            <!-- clear night: big crescent + two stars -->
+            <path d="M16.97 9.04 A12 12 0 1 0 29.66 23.85 A10 10 0 0 1 16.97 9.04 Z" fill="#ff0" stroke="#000" stroke-width="2.5" stroke-linejoin="round"/>
+            <g shape-rendering="crispEdges"><rect x="32" y="3" width="1" height="7"/><rect x="29" y="6" width="7" height="1"/>
+              <rect x="35" y="19" width="1" height="5"/><rect x="33" y="21" width="5" height="1"/></g>
+          {% elsif weather.icon == "partly" and weather.night %}
+            <!-- partly cloudy night: small crescent behind the cloud -->
+            <path d="M15.39 7.02 A9 9 0 1 0 24.63 18.56 A7.5 7.5 0 0 1 15.39 7.02 Z" fill="#ff0" stroke="#000" stroke-width="2.5" stroke-linejoin="round"/>
+          {% elsif weather.icon == "sun" or weather.icon == "partly" %}
+            <circle cx="16" cy="16" r="9" fill="#ff0" stroke="#000" stroke-width="2.5"/>
+          {% elsif weather.night %}
+            <!-- cloudy kinds at night: two stars in the free space above the cloud -->
+            <g shape-rendering="crispEdges"><rect x="7" y="2" width="1" height="7"/><rect x="4" y="5" width="7" height="1"/>
+              <rect x="34" y="7" width="1" height="5"/><rect x="32" y="9" width="5" height="1"/></g>
+          {% endif %}
+          {% if weather.icon != "sun" %}
+            <path d="M10 32 h20 a7 7 0 0 0 0 -14 a9 9 0 0 0 -17 3 a6 6 0 0 0 -3 11 z" fill="#fff"/>
+            <!-- dithered shadow: checkerboard inside the cloud, minus the cloud shifted up-left -->
+            <g clip-path="url(#nd-cloud-clip)">
+              <rect width="40" height="40" fill="url(#nd-d50)"/>
+              <path d="M10 32 h20 a7 7 0 0 0 0 -14 a9 9 0 0 0 -17 3 a6 6 0 0 0 -3 11 z" fill="#fff" transform="translate(-3,-4)"/>
+            </g>
+            <path d="M10 32 h20 a7 7 0 0 0 0 -14 a9 9 0 0 0 -17 3 a6 6 0 0 0 -3 11 z" fill="none" stroke="#000" stroke-width="2.5"/>
+          {% endif %}
+          {% if weather.icon == "rain" %}
+            <path d="M14 34 l-2 5 M21 34 l-2 5 M28 34 l-2 5" stroke="#000" stroke-width="2.5"/>
+          {% elsif weather.icon == "snow" %}
+            <circle cx="14" cy="37" r="2"/><circle cx="21" cy="37" r="2"/><circle cx="28" cy="37" r="2"/>
+          {% elsif weather.icon == "storm" %}
+            <path d="M21 30 l-4 6 h4 l-3 4" stroke="#f00" stroke-width="3" fill="none"/>
+          {% elsif weather.icon == "fog" %}
+            <path d="M8 36 h24 M11 39 h18" stroke="#000" stroke-width="2.5"/>
+          {% endif %}
+        </svg>
+        <span class="nd-temp">{{ weather.temp }}{{ weather.unit }}</span>
+        <div class="nd-wxinfo">
+          <div>{{ weather.label }}</div>
+          <div><span class="nd-rain{% if weather.rain >= 40 %} nd-warn{% endif %}"><svg class="nd-drop" width="12" height="9" viewBox="0 0 12 9" shape-rendering="crispEdges" fill="currentColor"><rect x="5" y="0" width="3" height="1"/><rect x="4" y="1" width="5" height="1"/><rect x="3" y="2" width="8" height="1"/><rect x="1" y="3" width="11" height="1"/><rect x="1" y="4" width="11" height="1"/><rect x="2" y="5" width="8" height="1"/><rect x="3" y="7" width="1" height="1"/><rect x="6" y="7" width="1" height="1"/><rect x="9" y="7" width="1" height="1"/><rect x="2" y="8" width="1" height="1"/><rect x="5" y="8" width="1" height="1"/><rect x="8" y="8" width="1" height="1"/></svg>{{ weather.rain }}%</span></div>
+          <div><span class="nd-hi">H {{ weather.max }}°</span><span class="nd-lo">L {{ weather.min }}°</span></div>
+        </div>
+      </div>
+      {% else %}
+      <div class="nd-wxinfo">weather unavailable</div>
+      {% endif %}
+    </div>
+
+    <div class="nd-rule" style="top: 66px"></div>
+
+    <div class="nd-gh">
+      {% if github.heatmap %}
+      <div class="nd-ghbar">
+        <svg width="16" height="16" viewBox="0 0 16 16" shape-rendering="crispEdges" fill="#fff" style="flex: none"><rect x="5" y="0" width="6" height="1"/><rect x="3" y="1" width="10" height="1"/><rect x="2" y="2" width="12" height="1"/><rect x="1" y="3" width="3" height="1"/><rect x="5" y="3" width="6" height="1"/><rect x="12" y="3" width="3" height="1"/><rect x="1" y="4" width="3" height="1"/><rect x="12" y="4" width="3" height="1"/><rect x="0" y="5" width="4" height="1"/><rect x="12" y="5" width="4" height="1"/><rect x="0" y="6" width="3" height="1"/><rect x="13" y="6" width="3" height="1"/><rect x="0" y="7" width="3" height="1"/><rect x="13" y="7" width="3" height="1"/><rect x="0" y="8" width="3" height="1"/><rect x="13" y="8" width="3" height="1"/><rect x="0" y="9" width="3" height="1"/><rect x="13" y="9" width="3" height="1"/><rect x="0" y="10" width="4" height="1"/><rect x="12" y="10" width="4" height="1"/><rect x="1" y="11" width="5" height="1"/><rect x="10" y="11" width="5" height="1"/><rect x="1" y="12" width="2" height="1"/><rect x="4" y="12" width="2" height="1"/><rect x="10" y="12" width="5" height="1"/><rect x="2" y="13" width="2" height="1"/><rect x="10" y="13" width="4" height="1"/><rect x="3" y="14" width="3" height="1"/><rect x="10" y="14" width="3" height="1"/><rect x="5" y="15" width="1" height="1"/><rect x="10" y="15" width="1" height="1"/></svg>
+        <span>@{{ github.login }}</span>
+        <span class="nd-r">{{ github.total }}/yr · streak {{ github.streak }}d</span>
+      </div>
+      <img class="nd-heat" src="{{ github.heatmap.src }}" width="{{ github.heatmap.width }}" height="{{ github.heatmap.height }}" alt="">
+      {% else %}
+      <div class="nd-sec-title">GitHub unavailable</div>
+      {% endif %}
+    </div>
+
+    <div class="nd-rule" style="top: 190px"></div>
+
+    <div class="nd-cl">
+      <div class="nd-sec-title"><span class="nd-cl-name">Claude Code</span>{% if claude.stale %}<span class="nd-warn" style="margin-left: 4px; font-family: 'TRMNL12', 'Noto Sans', sans-serif; font-size: 12px">old</span>{% endif %}{% if claude.available %}<span class="nd-asof">as of {{ claude.asof }}</span>{% endif %}</div>
+      {% if claude.available %}
+        {% assign w = claude.five_hour %}
+        <div class="nd-row">
+          <span class="nd-lbl">5h</span>
+          <span class="nd-bar">{% if w.known %}<span class="nd-fill{% if w.alert %} nd-alert{% endif %}" style="width: {{ w.pct }}%"></span>{% endif %}</span>
+          <span class="nd-pct">{% if w.known %}{{ w.pct }}%{% else %}–{% endif %}</span>
+          <span class="nd-rs">{% if w.known %}<svg width="11" height="11" viewBox="0 0 11 11"><circle cx="5.5" cy="5.5" r="4.25" fill="none" stroke="#000" stroke-width="2"/><path d="M5.5 2.8 V5.8 H8" fill="none" stroke="#000" stroke-width="1.6"/></svg>{{ w.resets }}{% endif %}</span>
+        </div>
+        {% assign w = claude.seven_day %}
+        <div class="nd-row">
+          <span class="nd-lbl">Week</span>
+          <span class="nd-bar">{% if w.known %}<span class="nd-fill{% if w.alert %} nd-alert{% endif %}" style="width: {{ w.pct }}%"></span>{% endif %}</span>
+          <span class="nd-pct">{% if w.known %}{{ w.pct }}%{% else %}–{% endif %}</span>
+          <span class="nd-rs">{% if w.known %}<svg width="11" height="11" viewBox="0 0 11 11"><circle cx="5.5" cy="5.5" r="4.25" fill="none" stroke="#000" stroke-width="2"/><path d="M5.5 2.8 V5.8 H8" fill="none" stroke="#000" stroke-width="1.6"/></svg>{{ w.resets }}{% endif %}</span>
+        </div>
+      {% else %}
+        <div class="nd-row">no usage snapshot yet</div>
+      {% endif %}
+    </div>
+
+    <div class="nd-status">
+      <span>updated {{ updated }}</span>
+      {% assign dev = trmnl.device %}
+      {% if dev.percent_charged != nil %}
+      <span class="nd-r">
+        <svg width="11" height="10" viewBox="0 0 11 10" shape-rendering="crispEdges" fill="#fff">
+          {% for i in (1..3) %}{% assign bh = i | times: 3 | plus: 1 %}{% assign by = 10 | minus: bh %}{% assign bx = i | minus: 1 | times: 4 %}
+          {% if dev.wifi_strength >= i %}<rect x="{{ bx }}" y="{{ by }}" width="3" height="{{ bh }}"/>{% else %}<rect x="{{ bx }}" y="9" width="3" height="1"/>{% endif %}
+          {% endfor %}
+        </svg>
+        {% assign pct = dev.percent_charged | round %}
+        {% assign fillw = pct | times: 14 | divided_by: 100 %}
+        <svg width="20" height="10" viewBox="0 0 20 10" shape-rendering="crispEdges">
+          <rect x="0" y="0" width="18" height="10" fill="#fff"/><rect x="1" y="1" width="16" height="8" fill="#000"/>
+          <rect x="18" y="3" width="2" height="4" fill="#fff"/>
+          <rect x="2" y="2" width="{{ fillw }}" height="6" fill="{% if pct < 20 %}#f00{% else %}#fff{% endif %}"/>
+        </svg>
+        <span>{{ pct }}%</span>
+      </span>
+      {% endif %}
+    </div>
+  </div>
+
+  {% if pet.available %}
+  <img class="nd-photo" src="{{ pet.src }}" width="{{ pet.width }}" height="{{ pet.height }}" alt="">
+  {% else %}
+  <div class="nd-photo-empty"></div>
+  {% endif %}
+</div>

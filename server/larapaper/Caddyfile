@@ -1,0 +1,56 @@
+# Caddy in front of LaraPaper on the VPS (compose.prod.yml). Values come from server/larapaper/.env.
+#
+#   PUBLIC_HOST    e.g. eink.example.com   public name the device and senders use
+#   ADMIN_HOST     e.g. vps.tail1234.ts.net the VPS's Tailscale MagicDNS name (admin UI)
+#   TAILSCALE_IP   e.g. 100.101.102.103     the VPS's Tailscale address (`tailscale ip -4`)
+#   WEBHOOK_TOKEN  long random string, also LARAPAPER_WEBHOOK_TOKEN for the collector
+#   ACME_EMAIL     for Let's Encrypt expiry notices
+{
+	email {$ACME_EMAIL}
+}
+
+# ---- Public: only what the device and the data senders need ----------------------------
+{$PUBLIC_HOST} {
+	# Device API (each request carries the device's access-token, checked by LaraPaper)
+	# and the rendered screens it downloads (random file names).
+	@device path /api/setup /api/display /api/log /api/current_screen /storage/images/*
+	handle @device {
+		reverse_proxy 127.0.0.1:8080
+	}
+
+	# Webhook: the plugin uuid in the URL is not enough on the internet; also require the token.
+	@webhook path /api/custom_plugins/*
+	handle @webhook {
+		@authorized header Authorization "Bearer {$WEBHOOK_TOKEN}"
+		handle @authorized {
+			request_header -Authorization
+			reverse_proxy 127.0.0.1:8080
+		}
+		respond 401
+	}
+
+	# Everything else (login, settings, the rest of the API) does not exist publicly.
+	handle {
+		respond 404
+	}
+
+	log
+}
+
+# ---- Admin UI: only reachable over Tailscale --------------------------------------------
+# Bound to the Tailscale address, so it is not even listening on the public interface.
+# Caddy gets the *.ts.net certificate from tailscaled (enable HTTPS in the Tailscale admin console).
+{$ADMIN_HOST} {
+	bind {$TAILSCALE_IP}
+	reverse_proxy 127.0.0.1:8080
+}
+
+# ---- Later: Cloudflare proxy in front of PUBLIC_HOST -----------------------------------
+# 1. Allow 80/443 on the VPS firewall only from Cloudflare's ranges (https://www.cloudflare.com/ips/).
+# 2. SSL mode "Full (strict)"; keep Let's Encrypt here or use a Cloudflare origin certificate.
+# 3. Add to the global options above so logs and rate limits see real client IPs:
+#      servers {
+#        trusted_proxies static <cloudflare ranges>
+#        client_ip_headers CF-Connecting-IP
+#      }
+# 4. Check that the firmware accepts Cloudflare's certificate chain before switching the device.
