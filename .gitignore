@@ -1,0 +1,32 @@
+# Secrets and local config: only *.example files are committed
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Device flash dumps and vendor binaries (may contain Wi-Fi credentials / device keys)
+backups/
+*.bin
+!firmware/trmnl/**/*.bin
+
+# Build output and caches
+.pio/
+build/
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+.ruff_cache/
+dist/
+
+# Editors / OS / local agent settings
+.vscode/
+.idea/
+.DS_Store
+.claude/settings.local.json
+
+# Personal media (pet photos, rendered screenshots)
+*.jpg
+*.jpeg
+/server/larapaper/*.png
