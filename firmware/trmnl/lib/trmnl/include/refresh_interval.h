@@ -33,6 +33,10 @@ public:
   // Retry ladders; attempt is 1-based.
   uint32_t applyApiRetry(uint8_t attempt);  // 15 / 30 / 60, then DEFAULT_SECONDS
   uint32_t applyWifiRetry(uint8_t attempt); // 60 / 180, then 300
+  // After the WiFi retry ladder is exhausted: keep retrying on a long timer instead of
+  // sleeping until a button press, so an unattended display recovers by itself.
+  static constexpr uint32_t WIFI_GIVE_UP_SECONDS = 1800;
+  uint32_t applyWifiGiveUp();
   uint32_t applyDefault();                  // fixed fallback, e.g. /api/setup 404
 
 private:

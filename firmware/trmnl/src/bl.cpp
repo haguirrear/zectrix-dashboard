@@ -2927,10 +2927,21 @@ static void wifiErrorDeepSleep()
     break;
 
   default:
-    preferences.putInt(PREFERENCES_CONNECT_WIFI_RETRY_COUNT, 1);
-    showMessageWithLogo(WIFI_RETRY_LIMIT);
+    // Ladder exhausted. Upstream parks in button-only sleep here, which leaves an unattended
+    // dashboard frozen until someone presses the button. Instead keep retrying on a long timer
+    // (WIFI_GIVE_UP_SECONDS); the counter is reset to 1 on the next successful connection.
+    // Show the message only when first reaching the limit so later failures don't redraw.
+    if (retry_count == 4)
+    {
+      showMessageWithLogo(WIFI_RETRY_LIMIT);
+    }
+    refreshInterval.applyWifiGiveUp();
+    if (retry_count < 100)
+    {
+      preferences.putInt(PREFERENCES_CONNECT_WIFI_RETRY_COUNT, retry_count + 1);
+    }
     display_sleep();
-    goToSleepButtonOnly();
+    goToSleep();
     return;
   }
   retry_count++;

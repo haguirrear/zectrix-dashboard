@@ -2678,7 +2678,7 @@ void display_show_msg(uint8_t *image_buffer, MSG message_type, const char *messa
     break;
     case WIFI_RETRY_LIMIT:
     {
-        const char string1[] = "Maximum WiFi retries reached.";
+        const char string1[] = "WiFi unavailable. Retrying every 30 min.";
         bbep.getStringBox(string1, &rect);
 #ifdef __BB_EPAPER__
         bbep.setCursor((bbep.width() - rect.w) / 2, message_baseline(340));
@@ -2686,7 +2686,7 @@ void display_show_msg(uint8_t *image_buffer, MSG message_type, const char *messa
         bbep.setCursor((bbep.width() - rect.w) / 2, bbep.height() - 140 - (rect.h*3));
 #endif
         bbep.println(string1);
-        const char string2[] = "Press button to manually refresh.";
+        const char string2[] = "Press button to retry now.";
         bbep.getStringBox(string2, &rect);
         bbep.setCursor((bbep.width() - rect.w) / 2, -1);
         bbep.println(string2);

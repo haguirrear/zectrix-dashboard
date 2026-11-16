@@ -61,6 +61,11 @@ uint32_t RefreshInterval::applyWifiRetry(uint8_t attempt) {
   return sleep;
 }
 
+uint32_t RefreshInterval::applyWifiGiveUp() {
+  writeIfChanged(WIFI_GIVE_UP_SECONDS);
+  return WIFI_GIVE_UP_SECONDS;
+}
+
 uint32_t RefreshInterval::applyDefault() {
   writeIfChanged(DEFAULT_SECONDS);
   return DEFAULT_SECONDS;
