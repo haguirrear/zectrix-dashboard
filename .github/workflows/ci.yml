@@ -67,6 +67,8 @@ jobs:
     needs: changes
     if: needs.changes.outputs.firmware == 'true' || github.event_name == 'push'
     runs-on: ubuntu-latest
+    env:
+      PLATFORMIO_VERSION: 6.1.19
     defaults:
       run:
         working-directory: firmware/trmnl
@@ -80,8 +82,10 @@ jobs:
           path: |
             ~/.platformio
             firmware/trmnl/managed_components
-          key: pio-${{ runner.os }}-${{ hashFiles('firmware/trmnl/platformio.ini', 'firmware/trmnl/dependencies.lock.esp32s3') }}
-      - run: pip install platformio
+          key: pio-${{ env.PLATFORMIO_VERSION }}-${{ runner.os }}-${{ hashFiles('firmware/trmnl/platformio.ini', 'firmware/trmnl/dependencies.lock.esp32s3') }}
+      # Pinned: 6.2.0 pulls SCons 4.11, which the espressif32 build scripts can't import
+      # (ModuleNotFoundError: SCons.Tool.FortranCommon). Bump together with a local test build.
+      - run: pip install platformio==${{ env.PLATFORMIO_VERSION }}
       - name: Unit tests (native)
         run: pio test -e native
       - name: Build NOTE4C firmware
