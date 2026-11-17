@@ -4,6 +4,9 @@ on:
   push:
     branches: [main]
   pull_request:
+  # Run manually (Actions -> CI -> Run workflow) to also build the firmware. Pushes only run the
+  # firmware unit tests: the firmware is built and flashed from your PC (just flash-app).
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -65,7 +68,7 @@ jobs:
 
   firmware:
     needs: changes
-    if: needs.changes.outputs.firmware == 'true' || github.event_name == 'push'
+    if: needs.changes.outputs.firmware == 'true' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     env:
       PLATFORMIO_VERSION: 6.1.19
@@ -89,8 +92,10 @@ jobs:
       - name: Unit tests (native)
         run: pio test -e native
       - name: Build NOTE4C firmware
+        if: github.event_name == 'workflow_dispatch'
         run: pio run -e zectrix_note4c
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      - if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: zectrix_note4c-firmware-${{ github.sha }}
           # firmware.bin = app only, flash at 0x20000 (keeps Wi-Fi + pairing); see docs/flashing.md
