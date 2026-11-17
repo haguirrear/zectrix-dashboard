@@ -178,7 +178,8 @@
     </div>
 
     <div class="nd-status">
-      <span>updated {{ updated }}</span>
+      {% assign upd_day = date | split: " " %}
+      <span>updated {{ upd_day[1] }} {{ upd_day[2] }} {{ updated }}</span>
       {% assign dev = trmnl.device %}
       {% if dev.percent_charged != nil %}
       <span class="nd-r">
