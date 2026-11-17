@@ -1216,6 +1216,7 @@ void bl_init(void)
     if (setup.showSetupScreen)
     {
       display_show_msg(storedLogoOrDefault(0), FRIENDLY_ID, setup.friendlyId, true, "", setup.message);
+      DisplayedImage::clear();
       need_to_refresh_display = 0;
     }
     else if (setup.errorScreen != NONE)
@@ -1320,6 +1321,22 @@ void bl_init(void)
     }
     if (firmwareUpdateResult.failureMessage != NONE)
       showMessageWithLogo(firmwareUpdateResult.failureMessage);
+  }
+
+  // Server down or unreachable (e.g. the laptop running it is off): keep the
+  // last dashboard on screen instead of replacing it with an error screen. Its
+  // "updated" date/time shows that it's stale, and the retry loop above keeps
+  // polling every 15 minutes. With nothing of ours on screen (cold boot, first
+  // setup) the error screen is still shown so the problem is visible.
+  bool server_unavailable = request_result == HTTPS_UNABLE_TO_CONNECT ||
+                            request_result == HTTPS_REQUEST_FAILED ||
+                            request_result == HTTPS_RESPONSE_CODE_INVALID ||
+                            request_result == HTTPS_TIMED_OUT;
+  if (server_unavailable && DisplayedImage::exists())
+  {
+    Log_error("%s [%d]: %s; keeping %s on screen", __FILE__, __LINE__,
+             szHTTPErrors[request_result], DisplayedImage::get());
+    request_result = HTTPS_NO_ERR;
   }
 
   // error handling
@@ -2834,6 +2851,7 @@ static void writeSpecialFunction(SPECIAL_FUNCTION function)
 static void showMessageWithLogo(MSG message_type, String friendly_id, bool id, const char *fw_version, String message)
 {
   display_show_msg(storedLogoOrDefault(0), message_type, friendly_id, id, fw_version, message);
+  DisplayedImage::clear(); // a message now covers the last dashboard image
   need_to_refresh_display = 1;
   preferences.putBool(PREFERENCES_DEVICE_REGISTERED_KEY, false);
 }
@@ -2841,6 +2859,7 @@ static void showMessageWithLogo(MSG message_type, String friendly_id, bool id, c
 void showMessageWithLogo(MSG message_type)
 {
   display_show_msg(storedLogoOrDefault(0), message_type);
+  DisplayedImage::clear(); // a message now covers the last dashboard image
 }
 
 /**
@@ -2852,6 +2871,7 @@ void showMessageWithLogo(MSG message_type)
 static void showMessageWithLogo(MSG message_type, const ApiSetupResponse &apiResponse)
 {
   display_show_msg(storedLogoOrDefault(0), message_type, "", false, "", apiResponse.message);
+  DisplayedImage::clear(); // a message now covers the last dashboard image
   need_to_refresh_display = 1;
   preferences.putBool(PREFERENCES_DEVICE_REGISTERED_KEY, false);
 }
