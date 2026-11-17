@@ -1,0 +1,11 @@
+# Keeps the commit-pinned GitHub Actions current: Dependabot opens a PR that bumps the hash and the
+# "# vX.Y.Z" comment together. Review the release notes before merging.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      actions:
+        patterns: ["*"]
