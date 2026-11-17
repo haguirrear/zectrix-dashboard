@@ -43,7 +43,13 @@ flash-full: fw-build
 
 # Serial logs
 monitor:
-    cd {{fw}} && pio device monitor -b 115200 -p {{port}}
+    cd {{fw}} && pio device monitor -e zectrix_note4c -p {{port}}
+
+flash-id:
+    cd {{fw}} && ~/.platformio/penv/bin/esptool --chip esp32s3 -p /dev/ttyACM0 flash-id
+
+ls:
+    ls /dev | grep -E 'ttyACM|ttyUSB'
 
 # Pull upstream firmware changes into the subtree
 fw-pull-upstream:
