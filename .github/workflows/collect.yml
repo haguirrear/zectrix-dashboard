@@ -8,7 +8,7 @@ name: Collect weather + GitHub
 #
 # Settings -> Secrets and variables -> Actions:
 #   secrets:   LARAPAPER_WEBHOOK_URL, LARAPAPER_WEBHOOK_TOKEN
-#   variables: COLLECT_ENABLED, LAT, LON, TZ, WEATHER_UNIT, GH_LOGIN, GH_WEEKS, HEATMAP_STYLE
+#   variables: COLLECT_ENABLED, LAT, LON, TZ, WEATHER_UNIT, GH_USERNAME, GH_WEEKS, HEATMAP_STYLE
 
 on:
   schedule:
@@ -37,7 +37,7 @@ jobs:
       LON: ${{ vars.LON }}
       TZ: ${{ vars.TZ }}
       WEATHER_UNIT: ${{ vars.WEATHER_UNIT }}
-      GH_LOGIN: ${{ vars.GH_LOGIN || github.repository_owner }}
+      GH_USERNAME: ${{ vars.GH_USERNAME || github.repository_owner }}
       GH_WEEKS: ${{ vars.GH_WEEKS }}
       HEATMAP_STYLE: ${{ vars.HEATMAP_STYLE }}
     steps:

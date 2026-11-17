@@ -24,11 +24,10 @@
     },
     "github": {
       "type": "object",
-      "required": ["login", "source", "total", "period_total", "streak", "nweeks", "levels", "heatmap"],
+      "required": ["login", "total", "period_total", "streak", "nweeks", "levels", "heatmap"],
       "additionalProperties": false,
       "properties": {
-        "login": { "type": "string" },
-        "source": { "enum": ["public", "api"] },
+        "login": { "type": "string", "description": "github.com username (GH_USERNAME)" },
         "total": { "type": "integer", "description": "Contributions in the last year" },
         "period_total": { "type": "integer", "description": "Contributions in the weeks shown" },
         "streak": { "type": "integer", "description": "Consecutive active days ending today" },

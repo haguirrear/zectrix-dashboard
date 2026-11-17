@@ -22,10 +22,9 @@ DEFAULTS: dict[str, str] = {
     "TZ": "UTC",
     "WEATHER_UNIT": "celsius",  # or fahrenheit
     # GitHub
-    "GH_LOGIN": "",  # empty = the account the `gh` CLI is logged in as
+    "GH_USERNAME": "",  # the github.com username whose public contribution graph is shown
     "GH_WEEKS": "18",
     "HEATMAP_STYLE": "stripes",  # "stripes" (diagonal hatching) or "dither" (25/50/75% ordered dither)
-    "GH_SOURCE": "public",  # public = profile page as a logged-out visitor sees it; api = GraphQL via gh
     # Claude Code usage snapshot written by host/claude-code/claude_usage_tap.py
     "CLAUDE_USAGE_FILE": "~/.cache/claude-usage.json",
     # Pet photo

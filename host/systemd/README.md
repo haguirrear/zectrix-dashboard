@@ -16,8 +16,8 @@ systemctl --user enable --now zectrix-collector.timer
 - Next run: `systemctl --user list-timers zectrix-collector.timer`
 
 Notes:
-- **PATH:** systemd jobs get a minimal PATH, so tools installed via mise/asdf/nvm (e.g. `gh`)
-  aren't found. Set `GH_LOGIN` in `collector/.env` so the collector never needs `gh`.
+- **PATH:** systemd jobs get a minimal PATH, so tools installed via mise/asdf/nvm aren't
+  found. The service calls uv by its full path (`%h/.local/bin/uv`) for that reason.
 - **Repo location:** if the repo isn't at `~/Documents/projects/zectrix-dashboard`, change
   `WorkingDirectory=` in the service file (or override it with `systemctl --user edit`).
 - **Which sources:** once the server is on a VPS and GitHub Actions sends weather and GitHub,

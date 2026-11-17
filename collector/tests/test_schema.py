@@ -30,7 +30,7 @@ def cfg(tmp_path, monkeypatch):
     days = [(f"2026-10-{d:02d}", d % 3, d % 5) for d in range(1, 32)]
     monkeypatch.setattr(github, "days_public", lambda login: (days, 123))
     return {"TZ": "America/New_York", "LAT": "1", "LON": "2", "WEATHER_UNIT": "celsius",
-            "GH_LOGIN": "octocat", "GH_SOURCE": "public", "GH_WEEKS": "18", "HEATMAP_STYLE": "stripes",
+            "GH_USERNAME": "octocat", "GH_WEEKS": "18", "HEATMAP_STYLE": "stripes",
             "CLAUDE_USAGE_FILE": str(snap), "PET_PHOTO": str(photo), "PET_FOCUS": "0.5,0.5", "PET_ZOOM": "1",
             "PET_SIZE": "14x30"}
 

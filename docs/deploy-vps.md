@@ -78,7 +78,7 @@ first `up`. Device, plugin uuid and template all come along.
 
 - **GitHub Actions** (repo → Settings → Secrets and variables → Actions):
   - secrets: `LARAPAPER_WEBHOOK_URL=https://<PUBLIC_HOST>/api/custom_plugins/<uuid>` and `LARAPAPER_WEBHOOK_TOKEN`;
-  - variables: `LAT`, `LON`, `TZ`, `GH_LOGIN`, then `COLLECT_ENABLED=true`.
+  - variables: `LAT`, `LON`, `TZ`, `GH_USERNAME`, then `COLLECT_ENABLED=true`.
 - **Your PC:** set the same URL and token in `collector/.env`. Limit the timer to `SOURCES=claude,pet`
   (see `host/systemd/README.md`).
 - **The device:** open the captive portal (hold the button combo, or let Wi-Fi fail) and set the

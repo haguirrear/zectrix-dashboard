@@ -3,18 +3,13 @@
 from __future__ import annotations
 
 import base64
-import json
 import re
-import subprocess
 from datetime import date
 
 from ..http import http_get
 from ..render.heatmap import heatmap_png
 
 Day = tuple[str, int, int]  # (ISO date, contribution count, level 0-4)
-
-GQL = """query($login:String!){user(login:$login){contributionsCollection{contributionCalendar{
-totalContributions weeks{contributionDays{date contributionCount}}}}}}"""
 
 
 def quartile_levels(counts: list[int]) -> list[int]:
@@ -24,17 +19,6 @@ def quartile_levels(counts: list[int]) -> list[int]:
         return [0] * len(counts)
     q = [nz[min(len(nz) - 1, int(len(nz) * f))] for f in (0.25, 0.5, 0.75)]
     return [0 if c == 0 else 1 if c <= q[0] else 2 if c <= q[1] else 3 if c <= q[2] else 4 for c in counts]
-
-
-def days_api(login: str) -> tuple[list[Day], int]:
-    """Per-day data via GraphQL with the `gh` CLI. Omits private contributions to orgs the gh
-    token isn't authorized for (e.g. SAML SSO orgs), so it can undercount."""
-    out = subprocess.run(["gh", "api", "graphql", "-f", f"query={GQL}", "-F", f"login={login}"],
-                         capture_output=True, text=True, check=True).stdout
-    cal = json.loads(out)["data"]["user"]["contributionsCollection"]["contributionCalendar"]
-    raw = [(d["date"], d["contributionCount"]) for wk in cal["weeks"] for d in wk["contributionDays"]]
-    levels = quartile_levels([c for _, c in raw])
-    return [(d, c, lv) for (d, c), lv in zip(raw, levels, strict=True)], cal["totalContributions"]
 
 
 def parse_public_calendar(html: str) -> tuple[list[Day], int]:
@@ -93,13 +77,13 @@ def current_streak(days: list[Day]) -> int:
 
 
 def collect(cfg: dict) -> dict:
-    login = cfg["GH_LOGIN"] or subprocess.run(
-        ["gh", "api", "user", "--jq", ".login"], capture_output=True, text=True, check=True).stdout.strip()
-    source = cfg["GH_SOURCE"].lower()
-    days, total = days_public(login) if source == "public" else days_api(login)
+    login = cfg["GH_USERNAME"].strip()
+    if not login:
+        raise RuntimeError("GH_USERNAME is not set")
+    days, total = days_public(login)
     weeks, grid = week_grid(days, int(cfg["GH_WEEKS"]))
     png, w, h = heatmap_png(grid, style=cfg["HEATMAP_STYLE"].lower())
-    return {"login": login, "source": source, "total": total,
+    return {"login": login, "total": total,
             "period_total": sum(c for wk in weeks for _, c, _ in wk),
             "streak": current_streak(days), "nweeks": len(grid), "levels": grid,
             "heatmap": {"src": "data:image/png;base64," + base64.b64encode(png).decode(),
