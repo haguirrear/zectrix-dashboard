@@ -73,7 +73,7 @@ Edit `templates/dashboard.liquid`, then run `scripts/push-template.sh`. The scri
 The rendered PNG is at `storage/app/public/images/generated/<id>.png` inside the container:
 
 ```zsh
-docker compose cp app:/var/www/html/storage/app/public/images/generated/<id>.png /tmp/screen.png
+docker compose cp larapaper:/var/www/html/storage/app/public/images/generated/<id>.png /tmp/screen.png
 ```
 
 Template variables are documented in [`schema/dashboard.schema.json`](../../schema/dashboard.schema.json).

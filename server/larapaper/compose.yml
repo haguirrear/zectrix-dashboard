@@ -5,7 +5,7 @@
 # SECURITY: plain HTTP, meant for the home LAN only. Do NOT port-forward it on the router.
 name: larapaper   # keeps the volume names (larapaper_database, larapaper_storage) stable
 services:
-  app:
+  larapaper:
     # Pinned release; bump deliberately (also in compose.prod.yml).
     image: ghcr.io/usetrmnl/larapaper:0.47.0
     ports:

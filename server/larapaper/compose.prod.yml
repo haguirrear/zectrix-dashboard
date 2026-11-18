@@ -1,27 +1,31 @@
-# LaraPaper on a VPS, behind Caddy. See docs/deploy-vps.md.
+# LaraPaper on the VPS, behind Cloudflare Tunnel and Caddy. See docs/deploy-vps.md.
 #
-#   docker compose -f compose.prod.yml up -d
+#   docker compose up -d        (with COMPOSE_FILE=compose.prod.yml in .env)
 #
-# - LaraPaper listens on 127.0.0.1:8080 only; nothing reaches it except Caddy.
-# - Caddy uses host networking so it sees real client IPs and can bind the admin site to the
-#   Tailscale address. Public: only the device API, generated images and the token-checked webhook.
-# - Firewall on the VPS: allow 80/443 (and Tailscale's UDP); SSH only over Tailscale.
-name: larapaper
+# No port is reachable from outside the VPS:
+# - cloudflared keeps an outbound connection to Cloudflare and hands requests to caddy:80.
+# - Caddy allows only the device API, the rendered images and the token-checked webhook.
+# - LaraPaper's 127.0.0.1:8080 is for `tailscale serve`, which publishes the admin UI on your tailnet.
+#
+# Each container gets only the variables it needs (no shared env_file): cloudflared never sees
+# APP_KEY, LaraPaper never sees the tunnel token. Values come from .env next to this file.
+name: larapaper # same project name as compose.yml, so the volume names match when migrating
 services:
-  app:
+  larapaper:
     image: ghcr.io/usetrmnl/larapaper:0.47.0
     ports:
       - "127.0.0.1:8080:8080"
-    env_file:
-      - .env            # APP_KEY, APP_URL=https://<PUBLIC_HOST>, plus the Caddy variables below
     environment:
+      - APP_KEY=${APP_KEY:?set APP_KEY in .env}
+      - APP_URL=${APP_URL:?set APP_URL in .env}
       - PHP_OPCACHE_ENABLE=1
       - TRMNL_PROXY_REFRESH_MINUTES=15
       - DB_DATABASE=database/storage/database.sqlite
       - APP_TIMEZONE=UTC
       - APP_ENV=production
       - FORCE_HTTPS=true
-      - TRUSTED_PROXIES=127.0.0.1
+      # Only Caddy (Docker network) and tailscale serve (via the 127.0.0.1 port) can reach it.
+      - TRUSTED_PROXIES=*
       - MULTIUSER_REGISTRATION_ENABLED=false
     volumes:
       - database:/var/www/html/database/storage
@@ -30,21 +34,24 @@ services:
 
   caddy:
     image: caddy:2.10.2
-    network_mode: host
-    env_file:
-      - .env            # PUBLIC_HOST, ADMIN_HOST, TAILSCALE_IP, WEBHOOK_TOKEN, ACME_EMAIL
+    environment:
+      - PUBLIC_HOST=${PUBLIC_HOST:?set PUBLIC_HOST in .env}
+      - WEBHOOK_TOKEN=${WEBHOOK_TOKEN:?set WEBHOOK_TOKEN in .env}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      - caddy_data:/data
-      - caddy_config:/config
-      # Lets Caddy get the HTTPS certificate for the *.ts.net admin name from tailscaled
-      - /var/run/tailscale/tailscaled.sock:/var/run/tailscale/tailscaled.sock
     depends_on:
-      - app
+      - larapaper
+    restart: unless-stopped
+
+  cloudflared:
+    image: cloudflare/cloudflared:2026.10.7
+    command: tunnel --no-autoupdate run
+    environment:
+      - TUNNEL_TOKEN=${TUNNEL_TOKEN:?set TUNNEL_TOKEN in .env}
+    depends_on:
+      - caddy
     restart: unless-stopped
 
 volumes:
   database:
   storage:
-  caddy_data:
-  caddy_config:

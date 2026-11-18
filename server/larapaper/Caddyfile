@@ -1,21 +1,32 @@
-# Caddy in front of LaraPaper on the VPS (compose.prod.yml). Values come from server/larapaper/.env.
+# Caddy behind Cloudflare Tunnel on the VPS (compose.prod.yml). See docs/deploy-vps.md.
 #
-#   PUBLIC_HOST    e.g. eink.example.com   public name the device and senders use
-#   ADMIN_HOST     e.g. vps.tail1234.ts.net the VPS's Tailscale MagicDNS name (admin UI)
-#   TAILSCALE_IP   e.g. 100.101.102.103     the VPS's Tailscale address (`tailscale ip -4`)
+#   device / senders ─HTTPS─> Cloudflare ─tunnel─> cloudflared ─HTTP─> caddy:80 ─> larapaper:8080
+#
+# TLS ends at Cloudflare, so Caddy serves plain HTTP on the private compose network and publishes
+# no ports. Its job is the allow-list: the internet only reaches the device API, the rendered
+# images and the token-checked webhook. The admin UI goes over Tailscale (`tailscale serve`).
+#
+# Values come from server/larapaper/.env (passed in by compose.prod.yml):
+#   PUBLIC_HOST    e.g. paper.example.com   the tunnel's public hostname
 #   WEBHOOK_TOKEN  long random string, also LARAPAPER_WEBHOOK_TOKEN for the collector
-#   ACME_EMAIL     for Let's Encrypt expiry notices
 {
-	email {$ACME_EMAIL}
+	auto_https off
+	admin off # nothing reloads Caddy over its API; restart the container to apply changes
+
+	servers {
+		# Requests only come from cloudflared on the private Docker network. Trusting it keeps the
+		# X-Forwarded-Proto: https it sends (LaraPaper builds https:// links) and the visitor's IP.
+		trusted_proxies static private_ranges
+		client_ip_headers Cf-Connecting-Ip
+	}
 }
 
-# ---- Public: only what the device and the data senders need ----------------------------
-{$PUBLIC_HOST} {
+http://{$PUBLIC_HOST} {
 	# Device API (each request carries the device's access-token, checked by LaraPaper)
 	# and the rendered screens it downloads (random file names).
 	@device path /api/setup /api/display /api/log /api/current_screen /storage/images/*
 	handle @device {
-		reverse_proxy 127.0.0.1:8080
+		reverse_proxy larapaper:8080
 	}
 
 	# Webhook: the plugin uuid in the URL is not enough on the internet; also require the token.
@@ -24,7 +35,7 @@
 		@authorized header Authorization "Bearer {$WEBHOOK_TOKEN}"
 		handle @authorized {
 			request_header -Authorization
-			reverse_proxy 127.0.0.1:8080
+			reverse_proxy larapaper:8080
 		}
 		respond 401
 	}
@@ -37,20 +48,7 @@
 	log
 }
 
-# ---- Admin UI: only reachable over Tailscale --------------------------------------------
-# Bound to the Tailscale address, so it is not even listening on the public interface.
-# Caddy gets the *.ts.net certificate from tailscaled (enable HTTPS in the Tailscale admin console).
-{$ADMIN_HOST} {
-	bind {$TAILSCALE_IP}
-	reverse_proxy 127.0.0.1:8080
+# Any other Host header (e.g. another hostname routed to this tunnel by mistake).
+http:// {
+	respond 404
 }
-
-# ---- Later: Cloudflare proxy in front of PUBLIC_HOST -----------------------------------
-# 1. Allow 80/443 on the VPS firewall only from Cloudflare's ranges (https://www.cloudflare.com/ips/).
-# 2. SSL mode "Full (strict)"; keep Let's Encrypt here or use a Cloudflare origin certificate.
-# 3. Add to the global options above so logs and rate limits see real client IPs:
-#      servers {
-#        trusted_proxies static <cloudflare ranges>
-#        client_ip_headers CF-Connecting-IP
-#      }
-# 4. Check that the firmware accepts Cloudflare's certificate chain before switching the device.

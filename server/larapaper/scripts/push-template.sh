@@ -23,8 +23,8 @@ fi
 mkdir -p backups
 stamp="$(date +%Y%m%d-%H%M%S)"
 
-docker compose exec -T app sh -c 'cat > /tmp/dashboard.liquid' < templates/dashboard.liquid
-docker compose exec -T -e UUID="$uuid" app php artisan tinker --execute='
+docker compose exec -T larapaper sh -c 'cat > /tmp/dashboard.liquid' < templates/dashboard.liquid
+docker compose exec -T -e UUID="$uuid" larapaper php artisan tinker --execute='
 $p = App\Models\Plugin::where("uuid", getenv("UUID"))->firstOrFail();
 file_put_contents("/tmp/dashboard.previous.liquid", (string) $p->render_markup);
 $new = file_get_contents("/tmp/dashboard.liquid");
@@ -38,5 +38,5 @@ foreach (App\Models\PlaylistItem::where("plugin_id", $p->id)->pluck("id") as $id
 $p->refresh();
 echo ($changed ? "template updated" : "template unchanged") . ", rendered: " . ($p->current_image ?? "(none)") . PHP_EOL;
 ' < /dev/null
-docker compose exec -T app cat /tmp/dashboard.previous.liquid < /dev/null > "backups/dashboard.$stamp.liquid"
+docker compose exec -T larapaper cat /tmp/dashboard.previous.liquid < /dev/null > "backups/dashboard.$stamp.liquid"
 echo "previous markup saved to server/larapaper/backups/dashboard.$stamp.liquid"
