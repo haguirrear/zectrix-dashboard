@@ -27,3 +27,13 @@ regex = '''(?i)WEBHOOK_TOKEN\s*=\s*[A-Za-z0-9_\-]{16,}'''
 description = "Fake example key in upstream firmware docs (firmware/trmnl/README.md; plain README.md inside subtree squash commits)"
 regexTarget = "match"
 regexes = ['''2r--SahjsAKCFksVcped2Q''']
+
+[[rules]]
+id = "tailscale-auth-key"
+description = "Tailscale auth key (server/vps/.env, cloud-init.rendered.yaml)"
+regex = '''tskey-auth-[A-Za-z0-9]{6,}-[A-Za-z0-9]{10,}'''
+
+[[rules]]
+id = "cloudflare-tunnel-token"
+description = "Cloudflare Tunnel token assigned in a config file"
+regex = '''(?i)TUNNEL_TOKEN\s*=\s*["']?eyJ[A-Za-z0-9_\-]{40,}'''

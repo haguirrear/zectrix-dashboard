@@ -30,3 +30,12 @@ dist/
 *.jpg
 *.jpeg
 /server/larapaper/*.png
+
+# OpenTofu (infra/): state and plans hold secrets (encrypted, but never in git); tfvars holds the API tokens
+infra/.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+*.tfvars
+!*.tfvars.example
+crash.log
