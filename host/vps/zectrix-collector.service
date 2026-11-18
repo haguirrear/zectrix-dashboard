@@ -1,0 +1,17 @@
+# Runs on the VPS: weather + GitHub -> LaraPaper, via the run-once "collector" compose service.
+# Install: see host/vps/README.md.
+[Unit]
+Description=Push weather and GitHub data to LaraPaper (e-ink dashboard)
+Requires=docker.service
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=apps
+Group=apps
+WorkingDirectory=/home/apps/zectrix-dashboard/server/larapaper
+# COMPOSE_FILE=compose.prod.yml comes from .env in this directory.
+ExecStart=/usr/bin/docker compose run --rm --no-deps collector
+# A hung network call must not block the next run.
+TimeoutStartSec=180

@@ -7,8 +7,9 @@ plan usage and a pet photo, and refreshes every few minutes on battery.
 ```
 firmware/trmnl/    TRMNL firmware fork (git subtree) with NOTE4C fixes       → the device
 server/larapaper/  LaraPaper (TRMNL BYOS server): template, compose, Caddy   → laptop / VPS
-collector/         Python package that gathers data and pushes it            → GitHub Actions + PC
-host/              Claude Code usage tap, systemd timer                      → your PC
+collector/         Python package that gathers data and pushes it            → VPS + PC
+host/              systemd timers (PC, VPS), Claude Code usage tap           → your PC, VPS
+infra/             OpenTofu: droplet, firewall, Cloudflare Tunnel, DNS        → your laptop
 schema/            the data contract between collector and template
 docs/              architecture, hardware, flashing, device API, VPS deploy
 ```
@@ -26,8 +27,8 @@ Start with [`docs/architecture.md`](docs/architecture.md).
 4. **Every 5 minutes:** install the timer ([`host/systemd/README.md`](host/systemd/README.md)).
    For Claude usage, add the status-line tap ([`host/claude-code/README.md`](host/claude-code/README.md)).
 
-Moving to a VPS: [`docs/deploy-vps.md`](docs/deploy-vps.md). After the move, the
-`collect.yml` workflow sends weather and GitHub data even while your laptop is off.
+Moving to a VPS: [`docs/deploy-vps.md`](docs/deploy-vps.md). After the move, the VPS sends
+weather and GitHub data itself, so the screen stays fresh while your laptop is off.
 
 ## Secrets
 
@@ -35,8 +36,9 @@ Nothing secret is committed. Only `*.env.example` files are tracked.
 
 | Secret | Lives in |
 |---|---|
-| LaraPaper `APP_KEY`, plugin uuid, Caddy webhook token | `server/larapaper/.env` |
-| Webhook URL + token, your location | `collector/.env`; GitHub Actions secrets and variables |
+| LaraPaper `APP_KEY`, plugin uuid, webhook token, tunnel token, your location (VPS) | `server/larapaper/.env` |
+| Webhook URL + token, your location (PC) | `collector/.env` |
+| Cloud API tokens, state passphrase | `infra/terraform.tfvars`; encrypted `infra/terraform.tfstate` |
 | Factory flash dump, pet photo | outside the repo |
 
 Every CI run scans for secrets (gitleaks over the full history). Locally, run `pre-commit install`

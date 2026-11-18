@@ -20,8 +20,8 @@ Notes:
   found. The service calls uv by its full path (`%h/.local/bin/uv`) for that reason.
 - **Repo location:** if the repo isn't at `~/Documents/projects/zectrix-dashboard`, change
   `WorkingDirectory=` in the service file (or override it with `systemctl --user edit`).
-- **Which sources:** once the server is on a VPS and GitHub Actions sends weather and GitHub,
-  limit this PC to its own data:
+- **Which sources:** once the server is on the VPS, which sends weather and GitHub itself
+  (`host/vps/`), limit this PC to its own data:
   `systemctl --user edit zectrix-collector.service` and add
   ```ini
   [Service]

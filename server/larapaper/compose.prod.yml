@@ -52,6 +52,29 @@ services:
       - caddy
     restart: unless-stopped
 
+  # Weather + GitHub sender. Not a long-running service: the "jobs" profile keeps it out of
+  # `docker compose up`, and the systemd timer in host/vps/ runs it every 15 minutes with
+  #   docker compose run --rm collector
+  # It posts straight to LaraPaper on the compose network, so the webhook never leaves the VPS
+  # and needs no Caddy token. (Optional ${VAR:-} forms: compose interpolates every service,
+  # even skipped ones, so a required variable here would break `up` before you set it.)
+  collector:
+    build: ../../collector
+    image: zectrix-collector:local
+    profiles: ["jobs"]
+    environment:
+      - LARAPAPER_WEBHOOK_URL=http://larapaper:8080/api/custom_plugins/${DASHBOARD_PLUGIN_UUID:-}
+      - LAT=${LAT:-}
+      - LON=${LON:-}
+      - TZ=${TZ:-UTC}
+      - WEATHER_UNIT=${WEATHER_UNIT:-celsius}
+      - GH_USERNAME=${GH_USERNAME:-}
+      - GH_WEEKS=${GH_WEEKS:-18}
+      - HEATMAP_STYLE=${HEATMAP_STYLE:-stripes}
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+
 volumes:
   database:
   storage:

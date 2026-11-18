@@ -1,0 +1,13 @@
+[Unit]
+Description=Run the e-ink dashboard collector (weather + GitHub) every 15 minutes
+
+[Timer]
+OnCalendar=*:0/15
+RandomizedDelaySec=30
+AccuracySec=10s
+# Catch up once after the VPS was down at a scheduled time.
+Persistent=true
+Unit=zectrix-collector.service
+
+[Install]
+WantedBy=timers.target

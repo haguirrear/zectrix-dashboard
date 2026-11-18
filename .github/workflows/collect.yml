@@ -1,14 +1,14 @@
 name: Collect weather + GitHub
 
-# Pushes the sources that don't need your PC to the server, every 15 minutes.
-# Claude usage and the pet photo come from your PC (host/systemd).
+# Fallback sender for weather + GitHub. Normally the VPS does this (host/vps/, a systemd timer
+# running the "collector" compose service), so this workflow stays off.
 #
-# Off until you set the repository variable COLLECT_ENABLED=true, which only makes sense once the
-# server is reachable from the internet (VPS, see docs/deploy-vps.md).
+# Off until you set the repository variable COLLECT_ENABLED=true.
 #
 # Settings -> Secrets and variables -> Actions:
-#   secrets:   LARAPAPER_WEBHOOK_URL, LARAPAPER_WEBHOOK_TOKEN
-#   variables: COLLECT_ENABLED, LAT, LON, TZ, WEATHER_UNIT, GH_USERNAME, GH_WEEKS, HEATMAP_STYLE
+#   secrets:   LARAPAPER_WEBHOOK_URL, LARAPAPER_WEBHOOK_TOKEN, LAT, LON
+#              (secrets, not variables: this repo is public and variables show up in the logs)
+#   variables: COLLECT_ENABLED, TZ, WEATHER_UNIT, GH_USERNAME, GH_WEEKS, HEATMAP_STYLE
 
 on:
   schedule:
@@ -33,8 +33,8 @@ jobs:
     env:
       LARAPAPER_WEBHOOK_URL: ${{ secrets.LARAPAPER_WEBHOOK_URL }}
       LARAPAPER_WEBHOOK_TOKEN: ${{ secrets.LARAPAPER_WEBHOOK_TOKEN }}
-      LAT: ${{ vars.LAT }}
-      LON: ${{ vars.LON }}
+      LAT: ${{ secrets.LAT }}
+      LON: ${{ secrets.LON }}
       TZ: ${{ vars.TZ }}
       WEATHER_UNIT: ${{ vars.WEATHER_UNIT }}
       GH_USERNAME: ${{ vars.GH_USERNAME || github.repository_owner }}

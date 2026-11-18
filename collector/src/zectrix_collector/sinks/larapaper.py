@@ -1,6 +1,6 @@
 """Push to a LaraPaper webhook plugin (POST /api/custom_plugins/<plugin-uuid>).
 
-Uses merge_strategy=deep_merge so several senders (GitHub Actions: weather + github;
+Uses merge_strategy=deep_merge so several senders (the VPS: weather + github;
 your PC: claude + pet) each update only their own keys without erasing the others'.
 A section that failed to collect is simply not sent, so the screen keeps its last good value.
 """

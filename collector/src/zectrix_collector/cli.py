@@ -5,7 +5,7 @@ PC only), pet (photo, PC only). Every run also sends "date" and "updated".
 
 Examples (from collector/):
   uv run zectrix-collect --dry-run                       # collect everything, print, don't send
-  uv run zectrix-collect --only weather,github           # what GitHub Actions runs
+  uv run zectrix-collect --only weather,github           # what the VPS runs (host/vps/)
   uv run zectrix-collect --only claude,pet               # what your PC runs once the server is remote
   uv run zectrix-collect --out /tmp/payload.json         # also save the payload
 
