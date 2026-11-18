@@ -1,0 +1,123 @@
+#cloud-config
+# First-boot setup for the "apps" droplet (Ubuntu 24.04). See docs/deploy-vps.md.
+#
+# This is a TEMPLATE: OpenTofu (infra/main.tf, templatefile) fills in the ADMIN_USER, ADMIN_SSH_KEY,
+# VPS_HOSTNAME and TS_AUTHKEY placeholders and passes the result as the droplet's user data. Any other
+# dollar-brace sequence in this file would be read as a template expression too, so avoid them.
+#
+# Result:
+# - users: your admin user (SSH key only) and apps (runs docker compose, no SSH, no sudo)
+# - root login and SSH passwords off; SSH only reachable over Tailscale (ufw + DO Cloud Firewall)
+# - Docker and Tailscale from their official apt repositories; automatic security updates
+# - 2 GB swap (LaraPaper renders with headless Chromium), Docker log rotation
+#
+# Sudo is passwordless only until you run `sudo finish-setup` on first login, which sets your
+# password and makes sudo ask for it. The password never appears in this file: DigitalOcean keeps
+# user data readable from inside the droplet (metadata service).
+
+hostname: ${VPS_HOSTNAME}
+disable_root: true
+ssh_pwauth: false
+package_update: true
+package_upgrade: true
+packages:
+  - ca-certificates
+  - curl
+  - git
+  - jq
+  - ufw
+  - unattended-upgrades
+
+users:
+  # No "default" entry: the stock "ubuntu" user is not created.
+  - name: ${ADMIN_USER}
+    groups: [sudo]
+    shell: /bin/bash
+    lock_passwd: true
+    sudo: "ALL=(ALL) NOPASSWD:ALL" # until `sudo finish-setup`
+    ssh_authorized_keys:
+      - "${ADMIN_SSH_KEY}" # quoted: a " #" in the key's comment would otherwise start a YAML comment
+  - name: apps
+    shell: /bin/bash
+    lock_passwd: true # reach it with `sudo -iu apps`
+
+write_files:
+  - path: /etc/ssh/sshd_config.d/10-hardening.conf
+    content: |
+      PermitRootLogin no
+      PasswordAuthentication no
+      KbdInteractiveAuthentication no
+      AuthenticationMethods publickey
+      AllowUsers ${ADMIN_USER}
+      X11Forwarding no
+
+  # Daily Ubuntu security updates. Never reboots by itself (Ubuntu's default, stated here so it's
+  # visible): when an update needs one, /var/run/reboot-required appears and the login banner says
+  # "System restart required"; reboot by hand. Docker and Tailscale come from their own repos,
+  # which unattended-upgrades leaves alone; update those by hand too (docs/deploy-vps.md).
+  - path: /etc/apt/apt.conf.d/20auto-upgrades
+    content: |
+      APT::Periodic::Update-Package-Lists "1";
+      APT::Periodic::Unattended-Upgrade "1";
+      Unattended-Upgrade::Automatic-Reboot "false";
+
+  - path: /etc/sysctl.d/99-swap.conf
+    content: |
+      vm.swappiness=10
+
+  # Docker keeps container logs forever by default.
+  - path: /etc/docker/daemon.json
+    content: |
+      {
+        "log-driver": "json-file",
+        "log-opts": { "max-size": "10m", "max-file": "3" }
+      }
+
+  - path: /usr/local/sbin/finish-setup
+    permissions: "0755"
+    content: |
+      #!/bin/sh
+      # Run once after the first SSH login: sudo finish-setup
+      # Sets the admin password (also used by DigitalOcean's web console), then makes sudo ask for it.
+      set -eu
+      user="${ADMIN_USER}"
+      passwd "$user"
+      printf '%s ALL=(ALL) ALL\n' "$user" > /etc/sudoers.d/90-cloud-init-users.new
+      visudo -cf /etc/sudoers.d/90-cloud-init-users.new
+      mv /etc/sudoers.d/90-cloud-init-users.new /etc/sudoers.d/90-cloud-init-users
+      echo "Done: sudo now asks for your password."
+
+runcmd:
+  # Swap
+  - [sh, -c, 'test -f /swapfile || { fallocate -l 2G /swapfile && chmod 600 /swapfile && mkswap /swapfile && echo "/swapfile none swap sw 0 0" >> /etc/fstab; }']
+  - [swapon, -a]
+  - [sysctl, --system]
+
+  # Docker Engine + compose plugin from Docker's apt repository (docs.docker.com/engine/install/ubuntu)
+  - [install, -m, "0755", -d, /etc/apt/keyrings]
+  - [curl, -fsSL, https://download.docker.com/linux/ubuntu/gpg, -o, /etc/apt/keyrings/docker.asc]
+  - [chmod, a+r, /etc/apt/keyrings/docker.asc]
+  - [sh, -c, 'echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo "$VERSION_CODENAME") stable" > /etc/apt/sources.list.d/docker.list']
+
+  # Tailscale from its apt repository (tailscale.com/download/linux/ubuntu-2404)
+  - [curl, -fsSL, https://pkgs.tailscale.com/stable/ubuntu/noble.noarmor.gpg, -o, /usr/share/keyrings/tailscale-archive-keyring.gpg]
+  - [curl, -fsSL, https://pkgs.tailscale.com/stable/ubuntu/noble.tailscale-keyring.list, -o, /etc/apt/sources.list.d/tailscale.list]
+
+  - [apt-get, update]
+  - [apt-get, install, -y, docker-ce, docker-ce-cli, containerd.io, docker-buildx-plugin, docker-compose-plugin, tailscale]
+  - [usermod, -aG, docker, apps]
+
+  # Join the tailnet. Use a one-off (not reusable), tagged auth key: once used it is worthless,
+  # which matters because user data stays readable from the droplet.
+  - [tailscale, up, --auth-key=${TS_AUTHKEY}, --hostname=${VPS_HOSTNAME}]
+
+  # Firewall: nothing inbound except SSH and the admin UI (tailscale serve) on the tailnet.
+  # ("on" is quoted: bare on is a boolean in YAML.)
+  # Docker-published ports bypass ufw, which is why compose.prod.yml only publishes on 127.0.0.1.
+  - [ufw, default, deny, incoming]
+  - [ufw, default, allow, outgoing]
+  - [ufw, allow, in, "on", tailscale0, to, any, port, "22", proto, tcp]
+  - [ufw, allow, in, "on", tailscale0, to, any, port, "443", proto, tcp]
+  - [ufw, --force, enable]
+
+  - [systemctl, restart, ssh]

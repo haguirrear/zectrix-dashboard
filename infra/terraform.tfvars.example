@@ -1,0 +1,22 @@
+# Copy to infra/terraform.tfvars (gitignored, chmod 600) and fill in. See infra/README.md.
+# To keep secrets out of this file, delete their lines and export TF_VAR_<name> instead
+# (or let `tofu` prompt for them).
+
+state_passphrase              = "REPLACE_ME (16+ characters, from your password manager)"
+do_token                      = "REPLACE_ME (starts with dop_v1_)"
+cloudflare_api_token          = "REPLACE_ME"
+tailscale_oauth_client_id     = "REPLACE_ME"
+tailscale_oauth_client_secret = "REPLACE_ME (starts with tskey-client-)"
+
+admin_user           = "REPLACE_ME"
+admin_ssh_public_key = "ssh-ed25519 AAAA_REPLACE_ME apps-vps"
+
+cloudflare_account_id = "REPLACE_ME"
+cloudflare_zone_id    = "REPLACE_ME"
+public_hostname       = "paper.example.com"
+
+# Defaults:
+# droplet_name = "apps"
+# region       = "nyc3"
+# size         = "s-1vcpu-2gb"
+# do_backups   = false
